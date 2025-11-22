@@ -1,0 +1,12 @@
+{
+    "mockArkAddress": {
+        "valid": "ark1qq4hfssprtcgnjzf8qlw2f78yvjau5kldfugg29k34y7j96q2w4t52zevysttv3wdkhlnzytedxaqah5h30tr3k92n080pxauu47ntrcuzwuet",
+        "invalid": "ark1qq44444444444jzf8qlw2f78yvjau5kldfugg29k34y7j96q2w4t52zevysttv3wdkhlnzytedxaqah5h30tr3k92n080pxauu47ntrcuzwuet"
+    },
+    "mockBoltzApiUrl": "http://mock-boltz-api.test",
+    "mockUrl": "http://mock-ark-server.test",
+    "mockServerPubkey": {
+        "valid": "022b74c2011af089c849383ee527c72325de52df6a788428b68d49e9174053aaba",
+        "invalid": "02b34c3f4e2b8e4f"
+    }
+}
