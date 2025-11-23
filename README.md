@@ -110,8 +110,9 @@ unlockPayment();
 
 - typescript
 - prettier
-- tsup
+- vitest
 - vite
+- tsup
 
 ## Development
 
