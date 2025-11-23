@@ -1,7 +1,10 @@
-// Generate tests
-import { describe, it, expect, vi } from "vitest";
-import { getServerInfo, InsertCoin, verifyArkAddress } from "../src/index.ts";
+import {
+    InsertCoin,
+    getServerInfo,
+    verifyArkAddress,
+} from "../src/insert-coin.ts";
 import fixtures from "./fixtures.json";
+import { describe, it, expect, vi } from "vitest";
 
 describe("getServerInfo", () => {
     it("should fetch server info successfully", async () => {
