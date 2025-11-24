@@ -35,7 +35,6 @@ export async function getServerInfo(
 
 /**
  * Validate that the ark address belongs to the server's pubkey
- * Throws error if invalid
  *
  * @param signerPubkey
  * @param arkAddress
@@ -84,6 +83,8 @@ export class InsertCoin {
      * - get server info
      * - validate ark address
      * - initialize swap provider
+     * - create identity and wallet
+     * - create ArkadeLightning instance
      *
      * @example
      * const insertCoin = await InsertCoin.create({
@@ -94,7 +95,7 @@ export class InsertCoin {
      *   referralId: 'your-referral-id', // optional
      * })
      *
-     * @param options with arkAddress, boltzApiUrl, arkServerUrl, privateKey
+     * @param options with arkAddress, boltzApiUrl, arkServerUrl, privateKey and referralId
      * @throws Error if required options are missing or invalid
      * @returns a InsertCoin instance
      */
@@ -117,7 +118,7 @@ export class InsertCoin {
         if (!network) throw new Error("Failed to get network from server");
         if (!signerPubkey) throw new Error("Failed to get signer pubkey");
 
-        // validate ark address if provided
+        // validate ark address
         verifyArkAddress(signerPubkey, arkAddress); // throws if invalid
 
         // initialize the Lightning swap provider
@@ -159,10 +160,7 @@ export class InsertCoin {
 
     /**
      * Request a lightning invoice for the specified amount
-     * - create ephemeral identity if no private key provided
-     * - create Arkade Wallet instance with identity
-     * - create ArkadeLightning instance
-     * - create lightning invoice
+     * - create lightning invoice via ArkadeLightning (reverse swap)
      * - generate QR code HTML (<img src="data:image/gif;base64,..." />)
      *
      * @example
@@ -211,6 +209,7 @@ export class InsertCoin {
         const blob = new Blob([gifBytes], { type: "image/gif" });
         const qrImage = `<img src=${URL.createObjectURL(blob)} alt='QR Code' />`;
 
+        // return invoice details
         return {
             amount,
             expiry,
@@ -227,6 +226,7 @@ export class InsertCoin {
      * @example
      * insertCoin.requestCoin({
      *   amountSats: 1000,
+     *   description: "Insert coin", // optional
      *   onInvoice: ({ amount, expiry, invoice, preimage, qrImage }) => {
      *     // display invoice and QR code to user
      *   },
@@ -253,11 +253,11 @@ export class InsertCoin {
     }): Promise<void> {
         // destructure and validate options
         const { amountSats, description, onInvoice, onPayment } = options;
-        if (!amountSats) throw new Error("Amount must be defined");
+        if (!amountSats) throw new Error("Sats amount must be defined");
         if (!onInvoice) throw new Error("onInvoice callback is required");
         if (!onPayment) throw new Error("onPayment callback is required");
         if (amountSats <= 0)
-            throw new Error("Amount must be greater than zero");
+            throw new Error("Sats amount must be greater than zero");
 
         // request invoice
         const { amount, expiry, invoice, pendingSwap, preimage, qrImage } =
@@ -277,17 +277,8 @@ export class InsertCoin {
      * wait for payment and claim the swap
      *
      * @example
-     * const {
-     *   wallet
-     *   pendingSwap,
-     *   arkadeLightning,
-     * } = await insertCoin.requestInvoice({ amountSats: 1000 })
-     *
-     * const { txid } = await insertCoin.waitForPayment({
-     *   arkadeLightning,
-     *   pendingSwap,
-     *   wallet
-     * })
+     * const { pendingSwap } = await insertCoin.requestInvoice({ amountSats: 1000 })
+     * const { txid } = await insertCoin.waitForPayment({ pendingSwap })
      *
      * @param options arkadeLightning, pendingSwap, wallet
      * @throws Error if required options are missing or invalid
@@ -304,9 +295,11 @@ export class InsertCoin {
         const result = await this.arkadeLightning.waitAndClaim(pendingSwap);
         if (!result.txid) throw new Error("Failed to receive coin");
 
-        // send all received bitcoin to the ark address
+        // get available balance (should be the received amount)
         const { available } = await this.wallet.getBalance();
         if (!available) throw new Error("No balance available to send");
+
+        // send all received bitcoin to the final ark address
         await this.wallet.sendBitcoin({
             address: this.arkAddress,
             amount: available,
