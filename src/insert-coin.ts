@@ -13,18 +13,6 @@ import {
 } from "@arkade-os/boltz-swap";
 
 /**
- * Generate QR code HTML (<img src="data:image/gif;base64,..." />)
- *
- * @param data to encode in QR code
- * @returns qr code as HTML img tag
- */
-export function generateQrCode(data: string): string {
-    const gifBytes = new Uint8Array(encodeQR(data, "gif", { scale: 7 }));
-    const blob = new Blob([gifBytes], { type: "image/gif" });
-    return `<img src=${URL.createObjectURL(blob)} alt='QR Code' />`;
-}
-
-/**
  * Get server info from server url
  * We need server's pubkey and network to initialize wallet
  *
