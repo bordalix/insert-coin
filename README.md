@@ -2,18 +2,14 @@
 
 A client-side paywall powered by Arkade
 
-## How it works
+See it working at https://arkade-invaders.pages.dev
 
-### Flow
+## How it works
 
 - Creates an ephemeral wallet
 - Creates a reverse submarine swap
 - Returns qr code image tag and invoice
 - After payment, send sats to final recipient
-
-### Demo
-
-See it working at https://arkade-invaders.pages.dev
 
 ## How to use it
 
