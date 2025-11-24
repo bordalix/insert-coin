@@ -1,7 +1,7 @@
 {
     "type": "module",
     "version": "0.0.1",
-    "name": "insert-coin",
+    "name": "insertcoin",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "description": "A client-side Arkade paywall.",
