@@ -3,10 +3,35 @@
         "valid": "ark1qq4hfssprtcgnjzf8qlw2f78yvjau5kldfugg29k34y7j96q2w4t52zevysttv3wdkhlnzytedxaqah5h30tr3k92n080pxauu47ntrcuzwuet",
         "invalid": "ark1qq44444444444jzf8qlw2f78yvjau5kldfugg29k34y7j96q2w4t52zevysttv3wdkhlnzytedxaqah5h30tr3k92n080pxauu47ntrcuzwuet"
     },
+    "mockArkInfo": {
+        "version": "v0.8.8",
+        "signerPubkey": "022b74c2011af089c849383ee527c72325de52df6a788428b68d49e9174053aaba",
+        "forfeitPubkey": "03b43a8363118c084a04d4f6a50ebfa58e81957f8cceceb2aee0ab64c9fd2d9977",
+        "forfeitAddress": "bc1qzzdzp5c443vsetzatf2ra6hku322y7e5aq50rs",
+        "checkpointTapscript": "039e0440b27520b43a8363118c084a04d4f6a50ebfa58e81957f8cceceb2aee0ab64c9fd2d9977ac",
+        "network": "bitcoin",
+        "sessionDuration": "60",
+        "unilateralExitDelay": "605184",
+        "boardingExitDelay": "7776256",
+        "utxoMinAmount": "330",
+        "utxoMaxAmount": "-1",
+        "vtxoMinAmount": "1",
+        "vtxoMaxAmount": "-1",
+        "dust": "330",
+        "fees": {
+            "intentFee": {
+                "offchainInput": "",
+                "offchainOutput": "",
+                "onchainInput": "0",
+                "onchainOutput": "200"
+            },
+            "txFeeRate": "0"
+        },
+        "scheduledSession": null,
+        "deprecatedSigners": [],
+        "serviceStatus": {},
+        "digest": "732c887102df071604234dcce7475dbeae17d52013bb70a0dfdafddcea8648d0"
+    },
     "mockBoltzApiUrl": "http://mock-boltz-api.test",
-    "mockUrl": "http://mock-ark-server.test",
-    "mockServerPubkey": {
-        "valid": "022b74c2011af089c849383ee527c72325de52df6a788428b68d49e9174053aaba",
-        "invalid": "02b34c3f4e2b8e4f"
-    }
+    "mockUrl": "http://mock-ark-server.test"
 }

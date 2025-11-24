@@ -42,10 +42,10 @@ const provider = await InsertCoin.create({
 
 ```typescript
 // example function to show the returned info to the user
-// note: qrCodeHtml = <img src="data:image/gif;base64,..." />
-function showQrCode(data: { invoice: string; qrCodeHtml: string }) {
+// note: qrImage = <img src="data:image/gif;base64,..." />
+function showQrCode(data: { invoice: string; qrImage: string }) {
     document.querySelector<HTMLDivElement>("#paywall")!.innerHtml = `
-    <p>${data.qrCodeHtml}</p>
+    <p>${data.qrImage}</p>
     <p>${data.invoice}</p>
   `;
 }
@@ -70,18 +70,15 @@ provider.requestPayment({
 ```typescript
 // get invoice data
 const invoiceData: {
-    amount: number;
-    arkadeLightning: ArkadeLightning;
-    expiry: number;
-    identity: SingleKey;
-    invoice: string;
-    preimage: string;
-    pendingSwap: CreateLightningInvoiceResponse["pendingSwap"];
-    qrCodeHtml: string;
-    wallet: Wallet;
+    amount: number; // the amount in sats you will receive
+    expiry: number; // swap expiration in unix epoch time
+    invoice: string; // bolt11 invoice
+    pendingSwap: PendingReverseSwap; // from @arkade-os/boltz-swap
+    preimage: string; // preimage (in hex) used to create invoice
+    qrImage: string; // <img src="data:image/gif;base64,..." />
 } = await provider.requestInvoice({
-  amountSats: 500,
-  description: "Insert coin", // optional
+    amountSats: 500,
+    description: "Insert coin", // optional, defaults to "Insert coin"
 });
 
 // show qrcode and invoice to user
@@ -89,9 +86,7 @@ showQrCode(invoiceData);
 
 // wait for payment
 const paymentData: { txid: string } = await provider.waitForPayment({
-    arkadeLightning: invoiceData.arkadeLightning
     pendingSwap: invoiceData.pendingSwap,
-    wallet: invoiceData.wallet
 });
 
 // unlock paid content

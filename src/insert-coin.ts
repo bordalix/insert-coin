@@ -9,8 +9,20 @@ import {
 import {
     ArkadeLightning,
     BoltzSwapProvider,
-    type CreateLightningInvoiceResponse,
+    PendingReverseSwap,
 } from "@arkade-os/boltz-swap";
+
+/**
+ * Generate QR code HTML (<img src="data:image/gif;base64,..." />)
+ *
+ * @param data to encode in QR code
+ * @returns qr code as HTML img tag
+ */
+export function generateQrCode(data: string): string {
+    const gifBytes = new Uint8Array(encodeQR(data, "gif", { scale: 7 }));
+    const blob = new Blob([gifBytes], { type: "image/gif" });
+    return `<img src=${URL.createObjectURL(blob)} alt='QR Code' />`;
+}
 
 /**
  * Get server info from server url
@@ -40,6 +52,7 @@ export async function getServerInfo(
  * @param signerPubkey
  * @param arkAddress
  * @throws Error if address is invalid or doesn't belong to server pubkey
+ * @returns void
  */
 export function verifyArkAddress(signerPubkey: string, arkAddress = ""): void {
     const { serverPubKey } = ArkAddress.decode(arkAddress); // throws if invalid
@@ -48,33 +61,34 @@ export function verifyArkAddress(signerPubkey: string, arkAddress = ""): void {
         throw new Error("Ark address doesn't belong to server's pubkey");
 }
 
-export interface InsertCoinOptions {
-    network: NetworkName;
-    arkAddress: string;
-    boltzApiUrl: string;
-    arkServerUrl: string;
-    privateKey: string;
-    signerPubkey: string;
-    swapProvider: BoltzSwapProvider;
-}
-
 export class InsertCoin {
-    readonly network: NetworkName;
+    readonly arkadeLightning: ArkadeLightning;
     readonly arkAddress: string;
-    readonly boltzApiUrl: string;
     readonly arkServerUrl: string;
+    readonly boltzApiUrl: string;
+    readonly network: NetworkName;
     readonly privateKey: string;
     readonly signerPubkey: string;
-    readonly swapProvider: BoltzSwapProvider;
+    readonly wallet: Wallet;
 
-    private constructor(options: InsertCoinOptions) {
+    private constructor(options: {
+        arkadeLightning: ArkadeLightning;
+        arkAddress: string;
+        arkServerUrl: string;
+        boltzApiUrl: string;
+        network: NetworkName;
+        privateKey: string;
+        signerPubkey: string;
+        wallet: Wallet;
+    }) {
+        this.arkadeLightning = options.arkadeLightning;
+        this.arkAddress = options.arkAddress;
+        this.arkServerUrl = options.arkServerUrl;
+        this.boltzApiUrl = options.boltzApiUrl;
         this.network = options.network;
         this.privateKey = options.privateKey;
-        this.arkAddress = options.arkAddress;
-        this.boltzApiUrl = options.boltzApiUrl;
-        this.arkServerUrl = options.arkServerUrl;
         this.signerPubkey = options.signerPubkey;
-        this.swapProvider = options.swapProvider;
+        this.wallet = options.wallet;
     }
 
     /**
@@ -86,8 +100,8 @@ export class InsertCoin {
      * @example
      * const insertCoin = await InsertCoin.create({
      *   arkAddress: 'ark1...', // where to send received coins
-     *   arkServerUrl: 'https://ark.server',
-     *   boltzApiUrl: 'https://boltz.api',
+     *   arkServerUrl: 'https://arkade.computer',
+     *   boltzApiUrl: 'https://api.ark.boltz.exchange',
      *   privateKey: 'your-private-key', // optional
      *   referralId: 'your-referral-id', // optional
      * })
@@ -125,15 +139,33 @@ export class InsertCoin {
             network,
         });
 
+        // create identity from private key or generate ephemeral one
+        const identity = privateKey
+            ? SingleKey.fromHex(privateKey)
+            : SingleKey.fromRandomBytes();
+
+        // create wallet with identity
+        const wallet = await Wallet.create({
+            arkServerUrl,
+            identity,
+        });
+
+        // create the ArkadeLightning instance
+        const arkadeLightning = new ArkadeLightning({
+            swapProvider: swapProvider,
+            wallet,
+        });
+
         // return InsertCoin instance
         return new InsertCoin({
+            arkadeLightning,
             arkAddress,
             arkServerUrl,
             boltzApiUrl,
             network,
             privateKey,
             signerPubkey,
-            swapProvider,
+            wallet,
         });
     }
 
@@ -160,65 +192,44 @@ export class InsertCoin {
         description?: string;
     }): Promise<{
         amount: number;
-        arkadeLightning: ArkadeLightning;
         expiry: number;
-        identity: SingleKey;
         invoice: string;
         preimage: string;
-        pendingSwap: CreateLightningInvoiceResponse["pendingSwap"];
-        qrCodeHtml: string;
-        wallet: Wallet;
+        pendingSwap: PendingReverseSwap;
+        qrImage: string;
     }> {
         // destructure and validate options
-        const { amountSats, description } = options;
+        const { amountSats } = options;
         if (!amountSats || amountSats <= 0)
             throw new Error("Amount must be greater than zero");
-
-        const identity = this.privateKey
-            ? SingleKey.fromHex(this.privateKey)
-            : SingleKey.fromRandomBytes();
-
-        // create wallet with identity
-        const wallet = await Wallet.create({
-            arkServerUrl: this.arkServerUrl,
-            identity,
-        });
-
-        // create the ArkadeLightning instance
-        const arkadeLightning = new ArkadeLightning({
-            swapProvider: this.swapProvider,
-            wallet,
-        });
+        const description = options.description ?? "Insert Coin";
 
         // create lightning invoice
-        const result = await arkadeLightning.createLightningInvoice({
-            description: description ?? "Insert Coin",
+        const result = await this.arkadeLightning.createLightningInvoice({
             amount: amountSats,
+            description,
         });
 
         // validate result
-        const { expiry, invoice, pendingSwap, preimage, amount } = result;
+        const { amount, expiry, invoice, pendingSwap, preimage } = result;
         if (!expiry) throw new Error("Invalid expiry in result");
         if (!invoice) throw new Error("Invalid invoice in result");
         if (!preimage) throw new Error("Invalid preimage in result");
         if (!pendingSwap) throw new Error("Invalid pendingSwap in result");
         if (amount > amountSats) throw new Error("Invalid amount in result");
 
-        // generate QR code HTML
+        // generate QR code HTML (<img src="data:image/gif;base64,..." />)
         const gifBytes = new Uint8Array(encodeQR(invoice, "gif", { scale: 7 }));
         const blob = new Blob([gifBytes], { type: "image/gif" });
-        const qrCodeHtml = `<img src=${URL.createObjectURL(blob)} alt='QR Code' />`;
+        const qrImage = `<img src=${URL.createObjectURL(blob)} alt='QR Code' />`;
 
         return {
             amount,
-            arkadeLightning,
             expiry,
-            identity,
             invoice,
-            pendingSwap,
             preimage,
-            qrCodeHtml,
-            wallet,
+            pendingSwap,
+            qrImage,
         };
     }
 
@@ -228,7 +239,7 @@ export class InsertCoin {
      * @example
      * insertCoin.requestCoin({
      *   amountSats: 1000,
-     *   onInvoice: ({ amount, expiry, invoice, preimage, qrCodeHtml }) => {
+     *   onInvoice: ({ amount, expiry, invoice, preimage, qrImage }) => {
      *     // display invoice and QR code to user
      *   },
      *   onPayment: ({ txid }) => {
@@ -248,7 +259,7 @@ export class InsertCoin {
             expiry: number;
             invoice: string;
             preimage: string;
-            qrCodeHtml: string;
+            qrImage: string;
         }) => void;
         onPayment: (data: { txid: string }) => void;
     }): Promise<void> {
@@ -261,26 +272,14 @@ export class InsertCoin {
             throw new Error("Amount must be greater than zero");
 
         // request invoice
-        const {
-            amount,
-            arkadeLightning,
-            expiry,
-            invoice,
-            preimage,
-            qrCodeHtml,
-            wallet,
-            pendingSwap,
-        } = await this.requestInvoice({ amountSats, description });
+        const { amount, expiry, invoice, pendingSwap, preimage, qrImage } =
+            await this.requestInvoice({ amountSats, description });
 
         // call onInvoice callback
-        onInvoice({ amount, expiry, invoice, preimage, qrCodeHtml });
+        onInvoice({ amount, expiry, invoice, preimage, qrImage });
 
         // wait for payment
-        const { txid } = await this.waitForPayment({
-            arkadeLightning,
-            pendingSwap,
-            wallet,
-        });
+        const { txid } = await this.waitForPayment({ pendingSwap });
 
         // call onPayment callback with txid
         onPayment({ txid });
@@ -307,25 +306,22 @@ export class InsertCoin {
      * @returns txid of the received coin
      */
     async waitForPayment(options: {
-        arkadeLightning: ArkadeLightning;
-        pendingSwap: CreateLightningInvoiceResponse["pendingSwap"];
-        wallet: Wallet;
+        pendingSwap: PendingReverseSwap;
     }): Promise<{ txid: string }> {
         // destructure and validate options
-        const { arkadeLightning, wallet, pendingSwap } = options;
-        if (!arkadeLightning) throw new Error("arkadeLightning is required");
+        const { pendingSwap } = options;
         if (!pendingSwap) throw new Error("pendingSwap is required");
-        if (!wallet) throw new Error("wallet is required");
 
         // wait and claim the swap
-        const result = await arkadeLightning.waitAndClaim(pendingSwap);
+        const result = await this.arkadeLightning.waitAndClaim(pendingSwap);
         if (!result.txid) throw new Error("Failed to receive coin");
 
         // send all received bitcoin to the ark address
-        const balance = await wallet.getBalance();
-        await wallet.sendBitcoin({
+        const { available } = await this.wallet.getBalance();
+        if (!available) throw new Error("No balance available to send");
+        await this.wallet.sendBitcoin({
             address: this.arkAddress,
-            amount: balance.available,
+            amount: available,
         });
 
         // return txid
